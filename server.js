@@ -7,14 +7,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// .env-ээс токен уншина
-const TOKEN = process.env.TELEGRAM_TOKEN;
+const TOKEN = process.env.TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 
 const bot = new TelegramBot(TOKEN, { polling: false });
-const PORT = process.env.PORT || 3000;
 
-// POST хүсэлт хүлээн авах эцсийн цэг
 app.post("/send", async (req, res) => {
   const text = req.body.text;
 
@@ -27,7 +24,7 @@ app.post("/send", async (req, res) => {
   }
 });
 
-// ⚠️ PORT заавал ингэж бичнэ
+// ⚠️ ЭНЭ ХАМГИЙН ЧУХАЛ
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
