@@ -33,3 +33,4 @@ app.listen(PORT, () => {
 app.get("/", (req, res) => {
   res.send("Electrical Store Backend is running 🚀");
 });
+const BACKEND_URL = "https://electrical-store-backend.onrender.com";
