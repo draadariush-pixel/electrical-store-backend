@@ -7,11 +7,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const TOKEN = process.env.8556561209:AAFf3LiluzYRFGrYPDXY_QsAaIOgCwSBBhk; // ⚠️ Token-оо эндээс авна
-const CHAT_ID = process.env.2111788794;      // ⚠️ Chat ID-г env болгож байна
+// .env-ээс токен уншина
+const TOKEN = process.env.TELEGRAM_TOKEN;
+const CHAT_ID = process.env.CHAT_ID;
 
 const bot = new TelegramBot(TOKEN, { polling: false });
+const PORT = process.env.PORT || 3000;
 
+// POST хүсэлт хүлээн авах эцсийн цэг
 app.post("/send", async (req, res) => {
   const text = req.body.text;
 
@@ -24,7 +27,9 @@ app.post("/send", async (req, res) => {
   }
 });
 
+// ⚠️ PORT заавал ингэж бичнэ
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
   console.log("✅ Server ажиллаж байна: " + PORT);
 });
