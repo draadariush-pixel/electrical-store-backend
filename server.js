@@ -55,6 +55,11 @@ app.post("/send-telegram", async (req, res) => {
     // Generate unique tracking code
     const trackingCode = generateTrackingCode();
     
+    // Message дээ tracking code заасан хэсгийг орлуулах
+    let finalMessage = message.replace(/\$\{trackingCode\}/g, trackingCode);
+    // Эсвэл placeholder дээ орлуулах
+    finalMessage = finalMessage.replace(/\.\.\./g, trackingCode);
+    
     // Захиалгын мэдээлэл хадгалах
     orders[trackingCode] = {
       trackingCode: trackingCode,
@@ -68,7 +73,8 @@ app.post("/send-telegram", async (req, res) => {
       updatedAt: new Date().toISOString()
     };
     
-    await bot.sendMessage(CHAT_ID, message, {
+    await bot.sendMessage(CHAT_ID, finalMessage, {
+      parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
           [
