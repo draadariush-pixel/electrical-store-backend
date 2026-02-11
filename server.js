@@ -2,6 +2,8 @@ require("dotenv").config();
 const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
 const cors = require("cors");
+const fs = require("fs");
+const path = require("path");
 
 const app = express();
 
@@ -23,6 +25,9 @@ if (!TOKEN || !CHAT_ID) {
 
 const bot = new TelegramBot(TOKEN, { polling: false });
 
+// ✅ Захиалгын мэдээлэл хадгалаж буй in-memory database
+const orders = {};
+
 // ✅ root endpoint (шалгах зориулалттай)
 app.get("/", (req, res) => {
   res.send("Electrical Store Backend is running 🚀");
@@ -30,7 +35,7 @@ app.get("/", (req, res) => {
 
 // ✅ Netlify-аас дуудах API (ГОЛ ХЭСЭГ)
 app.post("/send-telegram", async (req, res) => {
-  const { message, orderId } = req.body;
+  const { message, orderId, phone, name, address } = req.body;
 
   if (!message) {
     return res.status(400).json({ success: false, error: "Message хоосон байна" });
@@ -39,6 +44,17 @@ app.post("/send-telegram", async (req, res) => {
   try {
     // Simple ID system for callback_data (Telegram 64 byte limit)
     const shortOrderId = String(orderId).slice(-6); // Last 6 digits of timestamp
+    
+    // Захиалгын мэдээлэл хадгалах
+    orders[shortOrderId] = {
+      orderId: shortOrderId,
+      fullOrderId: orderId,
+      phone: phone,
+      name: name,
+      address: address,
+      status: "pending",
+      createdAt: new Date().toISOString()
+    };
     
     await bot.sendMessage(CHAT_ID, message, {
       reply_markup: {
@@ -54,18 +70,52 @@ app.post("/send-telegram", async (req, res) => {
         ]
       }
     });
-    res.json({ success: true });
+    res.json({ success: true, shortOrderId });
   } catch (err) {
     console.error("Telegram error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
+// ✅ Tracking API - захиалгын статусыг авах
+app.get("/track/:phone/:orderId", (req, res) => {
+  const { phone, orderId } = req.params;
+  const order = orders[orderId];
+  
+  if (!order || order.phone !== phone) {
+    return res.status(404).json({ success: false, error: "Захиалга олдсонгүй" });
+  }
+  
+  res.json({ 
+    success: true, 
+    order: {
+      orderId: order.orderId,
+      name: order.name,
+      address: order.address,
+      status: order.status,
+      statusText: getStatusText(order.status),
+      createdAt: order.createdAt
+    }
+  });
+});
+
+function getStatusText(status) {
+  const statuses = {
+    "pending": "⏳ Сахилж буй",
+    "shi": "📦 Хүргэлт гарсан",
+    "ready": "🚚 Замдаа явж байна",
+    "done": "✅ Хүргэгдсэн",
+    "cancel": "❌ Цуцлагдсан"
+  };
+  return statuses[status] || "❓ Үл мэдэгдэх статус";
+}
+
 // ✅ Render port
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("✅ Server ажиллаж байна: " + PORT);
 });
+
 bot.on("callback_query", async (query) => {
   const data = query.data; // callback_data
   const chatId = query.message.chat.id;
@@ -73,18 +123,29 @@ bot.on("callback_query", async (query) => {
   console.log("Telegram callback:", data);
 
   let statusText = "";
+  let status = "";
 
   if (data.startsWith("shi_")) {
     statusText = "📦 Хүргэлт гарлаа";
+    status = "shi";
   }
   else if (data.startsWith("ready_")) {
     statusText = "🚚 Захиалга замдаа явж байна";
+    status = "ready";
   }
   else if (data.startsWith("done_")) {
     statusText = "✅ Захиалга амжилттай хүргэгдлээ";
+    status = "done";
   }
   else if (data.startsWith("cancel_")) {
     statusText = "❌ Захиалга цуцлагдлаа";
+    status = "cancel";
+  }
+
+  // Захиалгын ID авах
+  const orderId = data.split("_")[1];
+  if (orders[orderId]) {
+    orders[orderId].status = status;
   }
 
   // Telegram дээр хариу илгээх
