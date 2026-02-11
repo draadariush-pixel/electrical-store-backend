@@ -25,10 +25,11 @@ if (!TOKEN || !CHAT_ID) {
 
 const bot = new TelegramBot(TOKEN, { polling: false });
 
-// ✅ Захиалгын мэдээлэл хадгалаж буй in-memory database
+// ✅ In-memory database with order tracking
 const orders = {};
+const orderIdToTrackingCode = {}; // orderId → trackingCode mapping
 
-// ✅ Random Code Generator (4-6 character)
+// ✅ Random Code Generator (6 character)
 function generateTrackingCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let code = '';
@@ -52,8 +53,18 @@ app.post("/send-telegram", async (req, res) => {
   }
 
   try {
+    // Нэг orderId дээр л нэг tracking code байх - дахин ирсэн бол оригинал код авах
+    if (orderIdToTrackingCode[orderId]) {
+      const existingCode = orderIdToTrackingCode[orderId];
+      console.log(`⚠️ Duplicate order request - returning existing code: ${existingCode}`);
+      return res.json({ success: true, trackingCode: existingCode });
+    }
+    
     // Generate unique tracking code
     const trackingCode = generateTrackingCode();
+    
+    // orderId → trackingCode mapping хадгалах
+    orderIdToTrackingCode[orderId] = trackingCode;
     
     // Message дээ tracking code заасан хэсгийг орлуулах
     let finalMessage = message.replace(/\$\{trackingCode\}/g, trackingCode);
