@@ -72,9 +72,12 @@ app.post("/send-telegram", async (req, res) => {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: "📦 Хүргэлт гарсан", callback_data: `shi_${trackingCode}` },
+            { text: "⏳ Захиалга бэлдэж байна", callback_data: `pending_${trackingCode}` },
+            { text: "📦 Хүргэлт гарсан", callback_data: `shi_${trackingCode}` }
+          ],
+          [
             { text: "🚚 Замдаа явж байна", callback_data: `ready_${trackingCode}` },
-            { text: "✅ Захиалга хүргэгдсэн", callback_data: `done_${trackingCode}` }
+            { text: "✅ Хүргэгдсэн", callback_data: `done_${trackingCode}` }
           ],
           [
             { text: "❌ Цуцлах", callback_data: `cancel_${trackingCode}` }
@@ -113,9 +116,30 @@ app.get("/track/:code", (req, res) => {
   });
 });
 
+// ✅ Статусыг шинэчлэх API
+app.post("/update-status", (req, res) => {
+  const { trackingCode, status } = req.body;
+  
+  if (!trackingCode || !status) {
+    return res.status(400).json({ success: false, error: "Параметр дутаж байна" });
+  }
+  
+  const order = orders[trackingCode];
+  if (!order) {
+    return res.status(404).json({ success: false, error: "Захиалга олдсонгүй" });
+  }
+  
+  // Статусыг шинэчлэх
+  order.status = status;
+  order.statusText = getStatusText(status);
+  order.updatedAt = new Date().toISOString();
+  
+  res.json({ success: true, order });
+});
+
 function getStatusText(status) {
   const statuses = {
-    "pending": "⏳ Сахилж буй",
+    "pending": "⏳ Захиалга бэлдэж байна",
     "shi": "📦 Хүргэлт гарсан",
     "ready": "🚚 Замдаа явж байна",
     "done": "✅ Хүргэгдсэн",
@@ -139,7 +163,11 @@ bot.on("callback_query", async (query) => {
   let statusText = "";
   let status = "";
 
-  if (data.startsWith("shi_")) {
+  if (data.startsWith("pending_")) {
+    statusText = "⏳ Захиалга бэлдэж байна";
+    status = "pending";
+  }
+  else if (data.startsWith("shi_")) {
     statusText = "📦 Хүргэлт гарлаа";
     status = "shi";
   }
