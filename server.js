@@ -46,7 +46,16 @@ app.get("/", (req, res) => {
 
 // ✅ Netlify-аас дуудах API (ГОЛ ХЭСЭГ)
 app.post("/send-telegram", async (req, res) => {
-  const { message, orderId, phone, name, address, customerTelegramId } = req.body;
+  const { message, orderId, phone, name, address, customerTelegramId, cartItems } = req.body;
+
+  console.log('📨 /send-telegram received:', {
+    orderId: orderId,
+    phone: phone,
+    name: name,
+    address: address,
+    cartItems: cartItems,
+    cartItemsCount: cartItems ? cartItems.length : 0
+  });
 
   if (!message) {
     return res.status(400).json({ success: false, error: "Message хоосон байна" });
@@ -80,12 +89,18 @@ app.post("/send-telegram", async (req, res) => {
       name: name,
       address: address,
       customerTelegramId: customerTelegramId,
+      cartItems: cartItems,
       status: "pending",
       statusText: "⏳ Сахилж буй",
       telegramSent: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+
+    console.log('✅ Order stored:', {
+      trackingCode: trackingCode,
+      cartItemsStored: orders[trackingCode].cartItems ? orders[trackingCode].cartItems.length : 0
+    });
     
     await bot.sendMessage(CHAT_ID, finalMessage, {
       parse_mode: 'HTML',
@@ -122,6 +137,13 @@ app.get("/track/:code", (req, res) => {
   const { code } = req.params;
   const order = orders[code];
   
+  console.log('🔍 /track/:code requested:', {
+    code: code,
+    orderExists: !!order,
+    cartItems: order ? order.cartItems : null,
+    cartItemsCount: order && order.cartItems ? order.cartItems.length : 0
+  });
+  
   if (!order) {
     return res.status(404).json({ success: false, error: "Захиалга олдсонгүй" });
   }
@@ -132,8 +154,10 @@ app.get("/track/:code", (req, res) => {
       trackingCode: order.trackingCode,
       name: order.name,
       address: order.address,
+      phone: order.phone,
       status: order.status,
       statusText: order.statusText,
+      cartItems: order.cartItems,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt
     }
