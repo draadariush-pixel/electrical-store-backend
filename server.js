@@ -57,6 +57,7 @@ app.post("/send-telegram", async (req, res) => {
     if (orderIdToTrackingCode[orderId]) {
       const existingCode = orderIdToTrackingCode[orderId];
       console.log(`⚠️ Duplicate order request - returning existing code: ${existingCode}`);
+      // Дахин мессэж явуулахгүй, зүгээр л tracking code буцаа
       return res.json({ success: true, trackingCode: existingCode });
     }
     
