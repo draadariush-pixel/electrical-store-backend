@@ -81,6 +81,9 @@ app.post("/send-telegram", async (req, res) => {
           ],
           [
             { text: "❌ Цуцлах", callback_data: `cancel_${trackingCode}` }
+          ],
+          [
+            { text: "🔍 Хяналтыг харах", url: `https://electrical-store-fronted.vercel.app/?track=${trackingCode}` }
           ]
         ]
       }
