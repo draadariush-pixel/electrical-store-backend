@@ -82,6 +82,7 @@ app.post("/send-telegram", async (req, res) => {
       customerTelegramId: customerTelegramId,
       status: "pending",
       statusText: "⏳ Сахилж буй",
+      telegramSent: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -108,6 +109,7 @@ app.post("/send-telegram", async (req, res) => {
       }
     });
     
+    console.log(`✅ Order saved - Code: ${trackingCode}, OrderId: ${orderId}`);
     res.json({ success: true, trackingCode });
   } catch (err) {
     console.error("Telegram error:", err);
