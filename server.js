@@ -28,6 +28,16 @@ const bot = new TelegramBot(TOKEN, { polling: false });
 // ✅ Захиалгын мэдээлэл хадгалаж буй in-memory database
 const orders = {};
 
+// ✅ Random Code Generator (4-6 character)
+function generateTrackingCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
 // ✅ root endpoint (шалгах зориулалттай)
 app.get("/", (req, res) => {
   res.send("Electrical Store Backend is running 🚀");
@@ -42,59 +52,63 @@ app.post("/send-telegram", async (req, res) => {
   }
 
   try {
-    // Simple ID system for callback_data (Telegram 64 byte limit)
-    const shortOrderId = String(orderId).slice(-6); // Last 6 digits of timestamp
+    // Generate unique tracking code
+    const trackingCode = generateTrackingCode();
     
     // Захиалгын мэдээлэл хадгалах
-    orders[shortOrderId] = {
-      orderId: shortOrderId,
-      fullOrderId: orderId,
+    orders[trackingCode] = {
+      trackingCode: trackingCode,
+      orderId: orderId,
       phone: phone,
       name: name,
       address: address,
       status: "pending",
-      createdAt: new Date().toISOString()
+      statusText: "⏳ Сахилж буй",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
     
     await bot.sendMessage(CHAT_ID, message, {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: "📦 Хүргэлт гарсан", callback_data: `shi_${shortOrderId}` },
-            { text: "🚚 Замдаа явж байна", callback_data: `ready_${shortOrderId}` },
-            { text: "✅ Захиалга хүргэгдсэн", callback_data: `done_${shortOrderId}` }
+            { text: "📦 Хүргэлт гарсан", callback_data: `shi_${trackingCode}` },
+            { text: "🚚 Замдаа явж байна", callback_data: `ready_${trackingCode}` },
+            { text: "✅ Захиалга хүргэгдсэн", callback_data: `done_${trackingCode}` }
           ],
           [
-            { text: "❌ Цуцлах", callback_data: `cancel_${shortOrderId}` }
+            { text: "❌ Цуцлах", callback_data: `cancel_${trackingCode}` }
           ]
         ]
       }
     });
-    res.json({ success: true, shortOrderId });
+    
+    res.json({ success: true, trackingCode });
   } catch (err) {
     console.error("Telegram error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// ✅ Tracking API - захиалгын статусыг авах
-app.get("/track/:phone/:orderId", (req, res) => {
-  const { phone, orderId } = req.params;
-  const order = orders[orderId];
+// ✅ Tracking API - захиалгын статусыг авах (код дээрээс)
+app.get("/track/:code", (req, res) => {
+  const { code } = req.params;
+  const order = orders[code];
   
-  if (!order || order.phone !== phone) {
+  if (!order) {
     return res.status(404).json({ success: false, error: "Захиалга олдсонгүй" });
   }
   
   res.json({ 
     success: true, 
     order: {
-      orderId: order.orderId,
+      trackingCode: order.trackingCode,
       name: order.name,
       address: order.address,
       status: order.status,
-      statusText: getStatusText(order.status),
-      createdAt: order.createdAt
+      statusText: order.statusText,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt
     }
   });
 });
@@ -142,10 +156,12 @@ bot.on("callback_query", async (query) => {
     status = "cancel";
   }
 
-  // Захиалгын ID авах
-  const orderId = data.split("_")[1];
-  if (orders[orderId]) {
-    orders[orderId].status = status;
+  // Захиалгын код авах
+  const trackingCode = data.split("_")[1];
+  if (orders[trackingCode]) {
+    orders[trackingCode].status = status;
+    orders[trackingCode].statusText = getStatusText(status);
+    orders[trackingCode].updatedAt = new Date().toISOString();
   }
 
   // Telegram дээр хариу илгээх
