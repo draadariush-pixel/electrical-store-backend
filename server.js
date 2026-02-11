@@ -45,7 +45,7 @@ app.get("/", (req, res) => {
 
 // ✅ Netlify-аас дуудах API (ГОЛ ХЭСЭГ)
 app.post("/send-telegram", async (req, res) => {
-  const { message, orderId, phone, name, address } = req.body;
+  const { message, orderId, phone, name, address, customerTelegramId } = req.body;
 
   if (!message) {
     return res.status(400).json({ success: false, error: "Message хоосон байна" });
@@ -67,6 +67,7 @@ app.post("/send-telegram", async (req, res) => {
       phone: phone,
       name: name,
       address: address,
+      customerTelegramId: customerTelegramId,
       status: "pending",
       statusText: "⏳ Сахилж буй",
       createdAt: new Date().toISOString(),
@@ -199,6 +200,25 @@ bot.on("callback_query", async (query) => {
     orders[trackingCode].status = status;
     orders[trackingCode].statusText = getStatusText(status);
     orders[trackingCode].updatedAt = new Date().toISOString();
+    
+    // Customer-т notification явуулах
+    if (orders[trackingCode].customerTelegramId) {
+      try {
+        const trackingLink = `https://electrical-store-fronted.vercel.app/?track=${trackingCode}`;
+        const customerMessage = `📦 <b>Таны захиалга ажиллаж байна!</b>\n\n${statusText}\n\n🔍 <a href="${trackingLink}">Статусыг харах</a>`;
+        
+        const customerId = orders[trackingCode].customerTelegramId;
+        if (customerId.startsWith('@')) {
+          // @username ашиглах
+          await bot.sendMessage(customerId.slice(1), customerMessage, { parse_mode: 'HTML' });
+        } else if (!isNaN(customerId)) {
+          // ID ашиглах
+          await bot.sendMessage(customerId, customerMessage, { parse_mode: 'HTML' });
+        }
+      } catch (err) {
+        console.warn("Customer notification failed:", err.message);
+      }
+    }
   }
 
   // Telegram дээр хариу илгээх
